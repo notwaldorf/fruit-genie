@@ -1,7 +1,4 @@
-const Tonal                           = require("tonal");
 const SerialPort                      = require('serialport')
-const Speaker                         = require('audio-speaker/stream');
-const Generator                       = require('audio-generator/stream');
 const easymidi                        = require('easymidi');
 
 const FIRST_BUTTON_PRESSED_MASK       = 0b00000001;
@@ -16,7 +13,6 @@ const EIGHTH_BUTTON_PRESSED_MASK      = 0b10000000
 const ARDUINO_CONTROLLER_BAUD         = 9600;
 
 const { fork }                        = require('child_process');
-const forked                          = fork('run_genie.js');
 
 const buttonMap                       = new Map();
 const pressedMap                      = new Map();
@@ -100,27 +96,26 @@ parser.on('data', (data) => {
 })
 
 handleButtonValue = function(button, value) {
-  if (!genieReady) {
-    // Wait for Tensorflow to load Piano Genie network
-    return;
-  }
-
   if (pressedMap.has(button)) {
     if (pressedMap.get(button) != value) {
       if (!value) {
-        if (!processing) {
-          processing = true;
-          forked.send({note: button})
-        }
+        console.log('1a');
+        // if (!processing) {
+        //   processing = true;
+        //   forked.send({note: button})
+        // }
       } else {
-        noteOff(button)
+        console.log('1b');
+        //noteOff(button)
       }
     }
   } else {
     if (!value) {
-      forked.send({note: button})
+      console.log('2a');
+      //forked.send({note: button})
     } else {
-      noteOff(button)
+      console.log('2b');
+      //noteOff(button)
     }
   }
   pressedMap.set(button, value);
@@ -139,22 +134,6 @@ noteOff = function(button) {
     buttonMap.delete(button);
   }
 }
-
-startAudioOutput = function() {
-  let stream = Generator(function (time) {
-      var τ = Math.PI * 2;
-      let notesToPlay = []
-      for (let buttonMapKey of buttonMap.keys()) {
-        let frequency = Tonal.Note.freq(Tonal.Note.fromMidi(buttonMap.get(buttonMapKey)))
-        notesToPlay.push(Math.sin(τ * time * frequency))
-      }
-      return notesToPlay;
-  })
-
-  stream.pipe(Speaker());
-}
-
-startAudioOutput();
 
 process.on('exit', function(code) {
   keyboard.close();
