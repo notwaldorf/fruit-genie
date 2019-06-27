@@ -2,7 +2,7 @@ const Tonal                           = require("tonal");
 const SerialPort                      = require('serialport')
 const Speaker                         = require('audio-speaker/stream');
 const Generator                       = require('audio-generator/stream');
-const midi                        = require('midi');
+const easymidi                        = require('easymidi');
 
 const FIRST_BUTTON_PRESSED_MASK       = 0b00000001;
 const SECOND_BUTTON_PRESSED_MASK      = 0b00000010
@@ -30,8 +30,7 @@ let processing                        = false;
 
 // Start a fake MIDI input device, so that the fruit sends MIDI events
 // which piano-genie the app can intercept.
-const fakeMidiDevice = new midi.output();
-fakeMidiDevice.openVirtualPort("Fruit Input");
+const fakeMidiDevice = new easymidi.Output('Fruit Output', true);
 
 SerialPort.list((err, devices) => {
   console.log(devices)
@@ -52,12 +51,17 @@ forked.on('message', (msg) => {
     genieReady = true;
     arduino.write("S\n");
   } else {
-    output.sendMessage([msg.button,22,1]);
     fakeMidiDevice.send('noteon', {
       note: msg.button,
-      velocity: 100,
-      channel: 0
+      velocity: 100
     });
+    setTimeout(() => {
+      fakeMidiDevice.send('noteoff', {
+        note: msg.button,
+        velocity: 100
+      });
+    }, 150);
+
     //noteOn(msg.note + LOWEST_NOTE, msg.button)
   }
   processing = false;
