@@ -2,6 +2,7 @@ const Tonal                           = require("tonal");
 const SerialPort                      = require('serialport')
 const Speaker                         = require('audio-speaker/stream');
 const Generator                       = require('audio-generator/stream');
+const midi                        = require('midi');
 
 const FIRST_BUTTON_PRESSED_MASK       = 0b00000001;
 const SECOND_BUTTON_PRESSED_MASK      = 0b00000010
@@ -27,10 +28,16 @@ let genieReady                        = false;
 let currentNotes                      = [];
 let processing                        = false;
 
+// Start a fake MIDI input device, so that the fruit sends MIDI events
+// which piano-genie the app can intercept.
+const fakeMidiDevice = new midi.output();
+fakeMidiDevice.openVirtualPort("Fruit Input");
+
 SerialPort.list((err, devices) => {
   console.log(devices)
 })
-const arduino = new SerialPort('/dev/tty.usbmodem3364981', {
+
+const arduino = new SerialPort('/dev/tty.usbmodem58887701', {
   baudRate: ARDUINO_CONTROLLER_BAUD
 })
 
@@ -40,11 +47,18 @@ let parser = new Readline()
 arduino.pipe(parser);
 
 forked.on('message', (msg) => {
+  console.log('got message', msg);
   if (msg.genieReady == true) {
     genieReady = true;
     arduino.write("S\n");
   } else {
-    noteOn(msg.note + LOWEST_NOTE, msg.button)
+    output.sendMessage([msg.button,22,1]);
+    fakeMidiDevice.send('noteon', {
+      note: msg.button,
+      velocity: 100,
+      channel: 0
+    });
+    //noteOn(msg.note + LOWEST_NOTE, msg.button)
   }
   processing = false;
 });
@@ -58,13 +72,8 @@ for (let i = 0; i < NUM_CHANNELS; i++) {
   }
 }
 
-function dec2bin(dec){
-    return (dec >>> 0).toString(2);
-}
-
-
-let context = this;
 parser.on('data', (data) => {
+  //console.log('got data', data)
   let dataByte = parseInt(data.split('b')[1]);
 
   let firstButton = !(FIRST_BUTTON_PRESSED_MASK & dataByte);
@@ -146,7 +155,7 @@ startAudioOutput();
 process.on('exit', function(code) {
   keyboard.close();
   forked.kill();
-
+  fakeMidiDevice.close();
   // Turn off any stray notes
   for (let i = 0 ; i < NUM_BUTTONS; i++) {
     noteOff(i)
