@@ -1,6 +1,10 @@
-const SerialPort                      = require('serialport')
-const easymidi                        = require('easymidi');
+// You will probably have to change this with whatever your usb device is
+// called. When you run `npm start`, this will first print all your serial
+// port devices, so you can pick the name from there.
+const PORT_NAME = '/dev/tty.usbmodem58887701';
 
+// If you want to control more or fewer buttons, make sure to update the masks.
+const NUM_BUTTONS                     = 8;
 const FIRST_BUTTON_PRESSED_MASK       = 0b00000001;
 const SECOND_BUTTON_PRESSED_MASK      = 0b00000010
 const THIRD_BUTTON_PRESSED_MASK       = 0b00000100
@@ -10,20 +14,20 @@ const SIXTH_BUTTON_PRESSED_MASK       = 0b00100000
 const SEVENTH_BUTTON_PRESSED_MASK     = 0b01000000
 const EIGHTH_BUTTON_PRESSED_MASK      = 0b10000000
 
+const SerialPort                      = require('serialport')
+const easymidi                        = require('easymidi');
 const ARDUINO_CONTROLLER_BAUD         = 9600;
-
-const pressedMap                      = new Map();
-let NUM_BUTTONS                       = 8;
+const pressedMap                      = new Map()
 
 // Start a fake MIDI input device, so that the fruit sends MIDI events
 // which piano-genie the app can intercept.
-const fakeMidiDevice = new easymidi.Output('Fruit Output', true);
+const fakeMidiDevice = new easymidi.Output('Teensy MIDI', true);
 
 SerialPort.list((err, devices) => {
   console.log(devices);
 })
 
-const arduino = new SerialPort('/dev/tty.usbmodem58887701', {
+const arduino = new SerialPort(PORT_NAME, {
   baudRate: ARDUINO_CONTROLLER_BAUD
 })
 
@@ -35,6 +39,7 @@ arduino.pipe(parser);
 parser.on('data', (data) => {
   let dataByte = parseInt(data.split('b')[1]);
 
+  // If you change the number of devices, you'll also have to update this.
   let firstButton = !(FIRST_BUTTON_PRESSED_MASK & dataByte);
   let secondButton = !(SECOND_BUTTON_PRESSED_MASK & dataByte);
   let thirdButton = !(THIRD_BUTTON_PRESSED_MASK & dataByte);
@@ -61,12 +66,13 @@ function noteOn(button) {
   });
 }
 
-function noteOf(button) {
+function noteOff(button) {
   fakeMidiDevice.send('noteoff', {
     note: button,
     velocity: 100
   });
 }
+
 handleButtonValue = function(button, value) {
   if (pressedMap.has(button)) {
     if (pressedMap.get(button) != value) {
