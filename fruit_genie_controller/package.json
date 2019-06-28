@@ -1,5 +1,5 @@
 {
-  "name": "midi_fruit",
+  "name": "midi_teensy",
   "version": "1.0.0",
   "description": "Use a Teensy to send out midi events",
   "main": "app.js",
