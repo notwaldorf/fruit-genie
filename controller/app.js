@@ -76,8 +76,6 @@ handleButtonValue = function(button, value) {
 }
 
 process.on('exit', function(code) {
-  keyboard.close();
-  forked.kill();
   fakeMidiDevice.close();
 
   // Turn off any stray notes
