@@ -54,21 +54,28 @@ parser.on('data', (data) => {
   handleButtonValue(7, eighthButton);
 })
 
+function noteOn(button) {
+  fakeMidiDevice.send('noteon', {
+    note: button,
+    velocity: 100
+  });
+}
+
+function noteOf(button) {
+  fakeMidiDevice.send('noteoff', {
+    note: button,
+    velocity: 100
+  });
+}
 handleButtonValue = function(button, value) {
   if (pressedMap.has(button)) {
     if (pressedMap.get(button) != value) {
       if (!value) {
-        console.log('⬇️ ', button);
-        fakeMidiDevice.send('noteon', {
-          note: button,
-          velocity: 100
-        });
+        console.log('⬇️ ', button, value);
+        noteOn(button);
       } else {
-        console.log('⬆️ ', button);
-        fakeMidiDevice.send('noteoff', {
-          note: button,
-          velocity: 100
-        });
+        console.log('⬆️ ', button, value);
+        noteOff(button);
       }
     }
   }
