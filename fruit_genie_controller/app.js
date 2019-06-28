@@ -12,68 +12,27 @@ const EIGHTH_BUTTON_PRESSED_MASK      = 0b10000000
 
 const ARDUINO_CONTROLLER_BAUD         = 9600;
 
-const { fork }                        = require('child_process');
-
-const buttonMap                       = new Map();
 const pressedMap                      = new Map();
-
-let LOWEST_NOTE                       = 24;
-let NUM_CHANNELS                      = 3;
 let NUM_BUTTONS                       = 8;
-let genieReady                        = false;
-let currentNotes                      = [];
-let processing                        = false;
 
 // Start a fake MIDI input device, so that the fruit sends MIDI events
 // which piano-genie the app can intercept.
 const fakeMidiDevice = new easymidi.Output('Fruit Output', true);
 
 SerialPort.list((err, devices) => {
-  console.log(devices)
+  console.log(devices);
 })
 
 const arduino = new SerialPort('/dev/tty.usbmodem58887701', {
   baudRate: ARDUINO_CONTROLLER_BAUD
 })
 
-// Setup the arduino port to listen for key presses
+// Setup the arduino port to listen for key presses.
 let Readline = SerialPort.parsers.Readline
 let parser = new Readline()
 arduino.pipe(parser);
 
-forked.on('message', (msg) => {
-  console.log('got message', msg);
-  if (msg.genieReady == true) {
-    genieReady = true;
-    arduino.write("S\n");
-  } else {
-    fakeMidiDevice.send('noteon', {
-      note: msg.button,
-      velocity: 100
-    });
-    setTimeout(() => {
-      fakeMidiDevice.send('noteoff', {
-        note: msg.button,
-        velocity: 100
-      });
-    }, 150);
-
-    //noteOn(msg.note + LOWEST_NOTE, msg.button)
-  }
-  processing = false;
-});
-
-let channelMap = new Map();
-
-for (let i = 0; i < NUM_CHANNELS; i++) {
-  channelMap.set(i, new Map())
-  for (let j = 0; j < NUM_BUTTONS; j++) {
-    channelMap.get(i).set(j, []);
-  }
-}
-
 parser.on('data', (data) => {
-  //console.log('got data', data)
   let dataByte = parseInt(data.split('b')[1]);
 
   let firstButton = !(FIRST_BUTTON_PRESSED_MASK & dataByte);
@@ -99,46 +58,28 @@ handleButtonValue = function(button, value) {
   if (pressedMap.has(button)) {
     if (pressedMap.get(button) != value) {
       if (!value) {
-        console.log('1a');
-        // if (!processing) {
-        //   processing = true;
-        //   forked.send({note: button})
-        // }
+        console.log('⬇️ ', button);
+        fakeMidiDevice.send('noteon', {
+          note: button,
+          velocity: 100
+        });
       } else {
-        console.log('1b');
-        //noteOff(button)
+        console.log('⬆️ ', button);
+        fakeMidiDevice.send('noteoff', {
+          note: button,
+          velocity: 100
+        });
       }
-    }
-  } else {
-    if (!value) {
-      console.log('2a');
-      //forked.send({note: button})
-    } else {
-      console.log('2b');
-      //noteOff(button)
     }
   }
   pressedMap.set(button, value);
-}
-
-noteOn = function(note, button) {
-  // Add to current list of output notes
-  currentNotes.push(note);
-  buttonMap.set(button, note)
-}
-
-noteOff = function(button) {
-  if (buttonMap.has(button)) {
-    let note = buttonMap.get(button)
-    currentNotes.splice(currentNotes.indexOf(note), 1);
-    buttonMap.delete(button);
-  }
 }
 
 process.on('exit', function(code) {
   keyboard.close();
   forked.kill();
   fakeMidiDevice.close();
+
   // Turn off any stray notes
   for (let i = 0 ; i < NUM_BUTTONS; i++) {
     noteOff(i)
